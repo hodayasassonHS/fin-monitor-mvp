@@ -1,0 +1,20 @@
+<Project>
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <!--
+    InvariantGlobalization is deliberately NOT set here. It is an application-level runtime
+    switch with no effect on a class library, and setting it solution-wide would also stop the
+    test projects from exercising non-invariant cultures — which is precisely what the stream
+    serialisation tests need to do. It is set on the API project instead.
+  -->
+
+</Project>
