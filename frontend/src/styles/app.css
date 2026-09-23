@@ -1,0 +1,631 @@
+/*
+  A single stylesheet with design tokens at the top.
+
+  The palette is deliberately dark: this is a screen that sits open on a support desk all day,
+  next to other tooling, and a large field of white is tiring in that setting. Status colours are
+  the one place saturation is spent, so the eye goes to the thing that changed.
+
+  Status colours are declared once, as `--status-*` custom properties, and the row exposes the
+  relevant one as `--status-tint`. The animation layer reads that computed value rather than
+  hard-coding colours in TypeScript, so a palette change here is picked up by the flash too.
+*/
+
+:root {
+  --bg: #0a0e13;
+  --surface: #111721;
+  --surface-raised: #161e2a;
+  --border: #232d3b;
+  --border-strong: #31405380;
+
+  --text: #e6edf3;
+  --text-muted: #8b98a5;
+  --text-faint: #5c6b7a;
+
+  --accent: #4c8dff;
+
+  --status-pending: #f0b429;
+  --status-completed: #3fb950;
+  --status-failed: #f85149;
+
+  --radius: 10px;
+  --radius-sm: 6px;
+
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', 'JetBrains Mono', Consolas, monospace;
+
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(1200px 600px at 50% -10%, #16202e 0%, transparent 70%),
+    var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ----------------------------------------------------------------------------- layout & nav */
+
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 14px clamp(16px, 4vw, 40px);
+  border-bottom: 1px solid var(--border);
+  background: #0d131bcc;
+  backdrop-filter: blur(8px);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.nav__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.nav__mark {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: linear-gradient(135deg, var(--accent), #8b5cf6);
+  box-shadow: 0 0 12px #4c8dff66;
+}
+
+.nav__links {
+  display: flex;
+  gap: 4px;
+}
+
+.nav__link {
+  padding: 7px 14px;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  text-decoration: none;
+  font-weight: 500;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.nav__link:hover {
+  background: #ffffff0d;
+  color: var(--text);
+}
+
+.nav__link.active {
+  background: #4c8dff1f;
+  color: var(--accent);
+}
+
+.main {
+  flex: 1;
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: clamp(20px, 4vw, 36px) clamp(16px, 4vw, 40px) 64px;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.panel__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.panel__title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.panel__subtitle {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  max-width: 62ch;
+}
+
+/* ------------------------------------------------------------------------- connection badge */
+
+.connection {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: color 0.3s ease, border-color 0.3s ease;
+}
+
+.connection__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  transition: background-color 0.3s ease;
+}
+
+.connection--live {
+  color: var(--status-completed);
+  border-color: #3fb9503d;
+}
+
+/* Only the healthy state pulses. A steady light reads as "nothing to see"; motion here means
+   "this is genuinely live", which is the one thing a stale dashboard cannot fake. */
+.connection--live .connection__dot {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.connection--connecting,
+.connection--reconnecting {
+  color: var(--status-pending);
+  border-color: #f0b4293d;
+}
+
+.connection--reconnecting .connection__dot {
+  animation: pulse 0.8s ease-in-out infinite;
+}
+
+.connection--offline {
+  color: var(--status-failed);
+  border-color: #f851493d;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.82);
+  }
+}
+
+/* -------------------------------------------------------------------------------- filtering */
+
+.filter {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  width: fit-content;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.filter__option {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.18s ease, color 0.18s ease;
+}
+
+.filter__option:hover {
+  color: var(--text);
+  background: #ffffff0a;
+}
+
+.filter__option[data-active='true'] {
+  background: var(--surface-raised);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+}
+
+.filter__option--pending[data-active='true'] {
+  color: var(--status-pending);
+}
+
+.filter__option--completed[data-active='true'] {
+  color: var(--status-completed);
+}
+
+.filter__option--failed[data-active='true'] {
+  color: var(--status-failed);
+}
+
+.filter__count {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #ffffff12;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+.filter__option[data-active='true'] .filter__count {
+  background: currentColor;
+  color: var(--surface);
+}
+
+/* ------------------------------------------------------------------------------------ table */
+
+.table-scroll {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow-x: auto;
+}
+
+.transaction-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.transaction-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 11px 16px;
+  background: var(--surface-raised);
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+
+.transaction-row {
+  border-bottom: 1px solid #1b2430;
+}
+
+.transaction-row:last-child {
+  border-bottom: 0;
+}
+
+.transaction-row:hover {
+  background: #ffffff05;
+}
+
+/*
+  The tint each row hands to the animation layer, and the accent stripe on its leading edge.
+  Alpha is kept low: this colour is painted across a whole row, where anything stronger reads as
+  an error state rather than as a highlight.
+*/
+.transaction-row--pending {
+  --status-tint: #f0b4292e;
+  --status-color: var(--status-pending);
+}
+
+.transaction-row--completed {
+  --status-tint: #3fb9502e;
+  --status-color: var(--status-completed);
+}
+
+.transaction-row--failed {
+  --status-tint: #f851493d;
+  --status-color: var(--status-failed);
+}
+
+.cell {
+  padding: 11px 16px;
+  white-space: nowrap;
+}
+
+.cell--id {
+  border-left: 2px solid var(--status-color);
+  transition: border-color 0.4s ease;
+}
+
+.cell--id code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.cell--amount {
+  font-weight: 600;
+  text-align: right;
+}
+
+.cell--currency {
+  color: var(--text-faint);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+.cell--time {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+/* --------------------------------------------------------------------------- status badges */
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 3px 10px 3px 8px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 12px;
+  font-weight: 600;
+  /*
+    The status-change bonus, and the reason a row does not move when it settles: the badge eases
+    between palettes in place. Colour and border are paint-only properties, so this costs nothing
+    even when many rows transition at once.
+  */
+  transition: background-color 0.4s ease, color 0.4s ease, border-color 0.4s ease;
+}
+
+.status-badge__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  transition: background-color 0.4s ease;
+}
+
+.status-badge--pending {
+  background: #f0b4291f;
+  border-color: #f0b42938;
+  color: var(--status-pending);
+}
+
+.status-badge--completed {
+  background: #3fb9501f;
+  border-color: #3fb95038;
+  color: var(--status-completed);
+}
+
+.status-badge--failed {
+  background: #f851491f;
+  border-color: #f8514938;
+  color: var(--status-failed);
+}
+
+/* ------------------------------------------------------------------------ forms & generator */
+
+.form,
+.generator,
+.log {
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 16px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 140px;
+}
+
+.field--inline {
+  min-width: 110px;
+}
+
+.field label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.field input,
+.field select {
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.field input:focus-visible,
+.field select:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px #4c8dff2e;
+}
+
+.button {
+  padding: 9px 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.08s ease;
+}
+
+.button:hover:not(:disabled) {
+  background: #1d2735;
+  border-color: var(--border-strong);
+}
+
+.button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.button--primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #06121f;
+}
+
+.button--primary:hover:not(:disabled) {
+  background: #6ba0ff;
+  border-color: #6ba0ff;
+}
+
+:where(button, a, input, select):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.generator__title {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.generator__hint {
+  margin: 0 0 16px;
+  color: var(--text-muted);
+  max-width: 68ch;
+}
+
+.generator__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.generator__progress {
+  margin: 14px 0 0;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ----------------------------------------------------------------------------- activity log */
+
+.log__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.log__line {
+  padding: 8px 12px;
+  border-left: 2px solid var(--border);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: var(--bg);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+  animation: log-in 0.3s ease-out;
+}
+
+.log__line--ok {
+  border-left-color: var(--status-completed);
+}
+
+.log__line--warn {
+  border-left-color: var(--status-pending);
+}
+
+.log__line--error {
+  border-left-color: var(--status-failed);
+  color: #ffb4b0;
+}
+
+@keyframes log-in {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.empty-state {
+  margin: 0;
+  padding: 36px 20px;
+  text-align: center;
+  color: var(--text-faint);
+}
+
+/*
+  Honour the system preference. The JavaScript animation layer checks this too; this block
+  covers the purely declarative transitions, which it cannot reach.
+*/
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
