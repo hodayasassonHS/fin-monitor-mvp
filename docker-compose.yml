@@ -1,0 +1,78 @@
+# A runnable demonstration of the multi-replica problem and its solution.
+#
+#   docker compose up --build
+#   open http://localhost:8080
+#
+# Two independent API replicas sit behind nginx with no shared memory between them. Post a
+# transaction from the simulator and it may be ingested by either one; the dashboard is connected
+# over a WebSocket to whichever replica nginx picked for it, quite possibly the other. It still
+# appears immediately, because ingestion publishes to a Redis Stream and *both* replicas consume
+# it. Stop either replica, post more traffic, start it again: it replays the retained stream on
+# startup and catches up rather than staying permanently behind.
+#
+# Remove the Redis connection string from either replica and that replica silently stops seeing
+# the other's traffic — which is the failure this architecture exists to prevent.
+
+name: fin-monitor
+
+x-api: &api
+  build:
+    context: ./backend
+  environment:
+    ASPNETCORE_ENVIRONMENT: Production
+    # Present, therefore distributed mode. Absent, therefore single-replica in-process mode.
+    Redis__ConnectionString: redis:6379
+    TransactionStore__Capacity: "500"
+    Redis__StreamMaxLength: "500"
+    Logging__LogLevel__FinMonitor: Information
+  depends_on:
+    redis:
+      condition: service_healthy
+  restart: unless-stopped
+
+services:
+  redis:
+    image: redis:7-alpine
+    # Persistence off: the stream is a short retention window for a live view, not a ledger.
+    # Losing it costs replicas their replay history, which they rebuild from new traffic.
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  api-a:
+    <<: *api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      Redis__ConnectionString: redis:6379
+      TransactionStore__Capacity: "500"
+      Redis__StreamMaxLength: "500"
+      Logging__LogLevel__FinMonitor: Information
+      POD_NAME: api-a
+
+  api-b:
+    <<: *api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      Redis__ConnectionString: redis:6379
+      TransactionStore__Capacity: "500"
+      Redis__StreamMaxLength: "500"
+      Logging__LogLevel__FinMonitor: Information
+      POD_NAME: api-b
+
+  web:
+    build:
+      context: ./frontend
+    ports:
+      - "8080:8080"
+    volumes:
+      # Overrides the single-upstream config in the image with one that fans out to both
+      # replicas, standing in for what a Kubernetes Service does.
+      - ./deploy/compose/nginx.lb.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - api-a
+      - api-b
+    restart: unless-stopped

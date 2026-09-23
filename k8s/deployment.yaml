@@ -1,0 +1,150 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: finmonitor-api
+  namespace: finmonitor
+  labels:
+    app.kubernetes.io/name: finmonitor-api
+    app.kubernetes.io/component: backend
+spec:
+  # The five replicas from the brief. Nothing in the application is aware of this number: every
+  # replica holds a full copy of the transaction window, rebuilt from the shared Redis Stream, so
+  # scaling is a matter of changing this line.
+  replicas: 5
+
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: finmonitor-api
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      # Never drop below full capacity during a rollout. Every pod termination severs live
+      # WebSocket connections, so a rollout is already disruptive; going under-provisioned at the
+      # same time would pile the reconnect storm onto fewer pods than normal.
+      maxUnavailable: 0
+      maxSurge: 2
+
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: finmonitor-api
+        app.kubernetes.io/component: backend
+      annotations:
+        # Forces a rolling restart when the configuration changes. Without it, a ConfigMap edit
+        # is picked up only by pods that happen to restart later, leaving the fleet inconsistent.
+        checksum/config: "replace-me-in-ci"
+
+    spec:
+      # Pods spend their shutdown draining WebSockets rather than being killed outright.
+      terminationGracePeriodSeconds: 60
+
+      securityContext:
+        runAsNonRoot: true
+        # Matches $APP_UID in the .NET base image.
+        runAsUser: 1654
+        runAsGroup: 1654
+        fsGroup: 1654
+        seccompProfile:
+          type: RuntimeDefault
+
+      topologySpreadConstraints:
+        # Without this the scheduler is free to stack all five replicas on one node, and the
+        # redundancy is imaginary until that node reboots.
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: finmonitor-api
+
+      containers:
+        - name: api
+          image: finmonitor/api:1.0.0
+          imagePullPolicy: IfNotPresent
+
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+
+          env:
+            # Surfaced by the API as the X-Instance response header, so a misbehaving replica can
+            # be identified from a browser's network tab rather than by grepping five log streams.
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: ASPNETCORE_ENVIRONMENT
+              value: Production
+
+          envFrom:
+            - configMapRef:
+                name: finmonitor-config
+            - secretRef:
+                name: finmonitor-secrets
+
+          resources:
+            requests:
+              cpu: 100m
+              # The in-memory window is bounded by TransactionStore__Capacity, so the footprint
+              # is flat under sustained load rather than growing with traffic.
+              memory: 192Mi
+            limits:
+              # No CPU limit on purpose. Throttling a latency-sensitive service at the quota
+              # boundary causes exactly the stutter a real-time dashboard exists to avoid; the
+              # request reserves a floor, and the memory limit is what actually protects the node.
+              memory: 512Mi
+
+          # Gives a slow start all the time it needs without forcing the liveness probe to be
+          # slack forever after.
+          startupProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            periodSeconds: 3
+            failureThreshold: 20
+
+          # Deliberately does not check Redis. A replica that has lost the stream still serves
+          # its own snapshot and its own ingestion correctly — it is stale, not broken — and
+          # restarting it would throw away its warm state without fixing anything.
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+          lifecycle:
+            preStop:
+              exec:
+                # Endpoint removal and SIGTERM race: without this pause the kubelet can stop the
+                # container while kube-proxy is still routing new connections to it, producing a
+                # burst of failed requests on every rollout.
+                command: ["/bin/sh", "-c", "sleep 5"]
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+
+          volumeMounts:
+            # readOnlyRootFilesystem is only workable because the runtime's scratch space is
+            # given somewhere writable to go.
+            - name: tmp
+              mountPath: /tmp
+
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi

@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: finmonitor-config
+  namespace: finmonitor
+data:
+  # ASP.NET Core maps the double underscore to configuration section nesting, so these override
+  # the matching keys in appsettings.json without a config file in the image.
+
+  # How many transactions each replica keeps in memory.
+  TransactionStore__Capacity: "500"
+
+  # The retained length of the shared log. Deliberately equal to the store capacity: this is the
+  # window a restarting or newly scheduled replica replays to rebuild its view, so a shorter log
+  # would leave new replicas permanently thinner than their peers, and a longer one would buy
+  # history that nothing ever reads.
+  Redis__StreamMaxLength: "500"
+  Redis__StreamKey: "finmonitor:transactions"
+  Redis__NotificationChannel: "finmonitor:transactions:wake"
+
+  # Backstop only. Steady-state latency comes from the pub/sub doorbell; this is what bounds
+  # staleness if a notification is lost during a disconnect.
+  Redis__SafetyPollInterval: "00:00:01"
+
+  Logging__LogLevel__Default: "Information"
+  Logging__LogLevel__Microsoft.AspNetCore: "Warning"
+
+  # Empty: the dashboard is served from the same origin through the ingress, so the browser
+  # never makes a cross-origin request and no origin needs allowing.
+  Cors__AllowedOrigins__0: ""
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: finmonitor-secrets
+  namespace: finmonitor
+type: Opaque
+stringData:
+  # In a real cluster this comes from External Secrets, Sealed Secrets or the cloud provider's
+  # secret store — never from a file in the repository. Checked in here only so the manifests
+  # apply cleanly as a demonstration.
+  #
+  # Removing this key is all it takes to fall back to single-replica in-process mode, which is a
+  # useful thing to know when diagnosing: if replicas disagree, check that this is set.
+  Redis__ConnectionString: "finmonitor-redis:6379"

@@ -1,0 +1,10 @@
+# Keeping the build context small speeds every build and, more importantly, stops local build
+# output from leaking into the image and invalidating layer caches on every change.
+**/bin/
+**/obj/
+**/.vs/
+**/*.user
+tests/
+TestResults/
+Dockerfile
+.dockerignore

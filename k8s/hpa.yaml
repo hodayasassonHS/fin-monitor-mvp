@@ -1,0 +1,47 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: finmonitor-api
+  namespace: finmonitor
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: finmonitor-api
+
+  minReplicas: 3
+  maxReplicas: 20
+
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+
+  behavior:
+    scaleUp:
+      # Ingestion spikes are sudden; waiting out a stabilisation window would mean scaling up
+      # after the spike has already been absorbed or dropped.
+      stabilizationWindowSeconds: 30
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 30
+
+    scaleDown:
+      # Deliberately slow. Removing a replica severs every WebSocket it holds, and those clients
+      # all reconnect at once onto the remaining replicas — which raises CPU and can trigger
+      # another scale-down decision. A long window keeps that from oscillating.
+      stabilizationWindowSeconds: 600
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 120
+
+# Note on what is being scaled on. CPU is a weak proxy here: this workload is bounded by the
+# number of concurrent connections far more than by compute, and a replica can be holding
+# thousands of idle sockets at negligible CPU. The right signal is a custom metric — connected
+# clients per replica, exported from SignalR and read through the external metrics API — which
+# is a deliberate next step rather than something to fake with a CPU threshold.

@@ -1,0 +1,49 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: finmonitor
+  namespace: finmonitor
+  annotations:
+    # A live dashboard is idle between transactions. The default 60s read timeout would sever
+    # the WebSocket during any quiet spell and make a healthy feed look like it keeps dropping.
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+
+    # Streaming, not request/response: buffering would hold updates back until a buffer filled,
+    # which is precisely the latency this system exists to remove.
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: finmonitor.example.com
+      http:
+        paths:
+          # Ordering matters: the API and hub paths are matched before the catch-all, or the
+          # dashboard would answer them with index.html.
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: finmonitor-api
+                port:
+                  name: http
+          - path: /hubs
+            pathType: Prefix
+            backend:
+              service:
+                name: finmonitor-api
+                port:
+                  name: http
+          # Everything else is the SPA. Routing both through one host keeps the browser on a
+          # single origin, so there is no CORS and no credentialed cross-origin WebSocket.
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: finmonitor-dashboard
+                port:
+                  name: http
+  tls:
+    - hosts:
+        - finmonitor.example.com
+      secretName: finmonitor-tls

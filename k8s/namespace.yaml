@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: finmonitor
+  labels:
+    app.kubernetes.io/part-of: finmonitor
+    # Opts the namespace into the restricted Pod Security Standard. The workload already meets
+    # it — non-root, no privilege escalation, all capabilities dropped — and declaring it here
+    # means the API server rejects any future manifest that quietly regresses, rather than the
+    # regression being caught in review or not at all.
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest

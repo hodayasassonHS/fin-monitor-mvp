@@ -1,0 +1,94 @@
+# Redis for the demonstration only.
+#
+# A single replica with no persistence and no failover is not something to run in production. A
+# real deployment uses a managed service (ElastiCache, Azure Cache for Redis, MemoryStore) or a
+# properly operated Redis with replication and Sentinel, and points
+# `Redis__ConnectionString` at it — nothing in the application changes.
+#
+# The relevant property is that the application tolerates losing this entirely: replicas keep
+# serving their own snapshots and ingestion while disconnected, report themselves degraded rather
+# than unhealthy, and resume consuming when it returns.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: finmonitor-redis
+  namespace: finmonitor
+  labels:
+    app.kubernetes.io/name: finmonitor-redis
+    app.kubernetes.io/component: event-bus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: finmonitor-redis
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: finmonitor-redis
+        app.kubernetes.io/component: event-bus
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          args:
+            - redis-server
+            # No persistence: the stream is a short retention window backing a live view, not a
+            # ledger. The system of record is upstream.
+            - --save
+            - ""
+            - --appendonly
+            - "no"
+            # Hard cap so a traffic spike cannot evict the whole keyspace or OOM the pod.
+            - --maxmemory
+            - 128mb
+            - --maxmemory-policy
+            - allkeys-lru
+          ports:
+            - name: redis
+              containerPort: 6379
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: redis
+            periodSeconds: 15
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 192Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          emptyDir:
+            sizeLimit: 128Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: finmonitor-redis
+  namespace: finmonitor
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: finmonitor-redis
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: redis

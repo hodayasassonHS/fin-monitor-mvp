@@ -1,0 +1,49 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: finmonitor-api
+  namespace: finmonitor
+  labels:
+    app.kubernetes.io/name: finmonitor-api
+spec:
+  type: ClusterIP
+
+  # SignalR's default handshake is two separate HTTP requests — a POST to /negotiate followed by
+  # the transport connection — and a round-robin Service is free to send them to different
+  # replicas, which breaks the handshake intermittently and unreproducibly.
+  #
+  # The dashboard avoids this entirely by connecting with `skipNegotiation: true` over the
+  # WebSocket transport, so there is only ever one request. Affinity is kept anyway as a second
+  # line of defence: any client that does negotiate — a future integration, a debugging session
+  # with the .NET client's defaults — gets a consistent replica rather than a flaky one.
+  #
+  # Worth being clear that affinity is *not* how the data stays consistent. That is the Redis
+  # Stream's job, and it works no matter which replica a client lands on. See
+  # docs/adr/0003-multi-replica-synchronisation.md.
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 10800
+
+  selector:
+    app.kubernetes.io/name: finmonitor-api
+
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: finmonitor-api
+  namespace: finmonitor
+spec:
+  # Voluntary disruptions — node drains, cluster upgrades — may not take the fleet below four of
+  # five. Every eviction drops live WebSocket connections, and an unbounded drain would dump all
+  # of them onto whatever remains at once.
+  minAvailable: 4
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: finmonitor-api
