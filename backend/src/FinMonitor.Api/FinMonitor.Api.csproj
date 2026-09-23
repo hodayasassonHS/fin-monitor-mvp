@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <UserSecretsId>finmonitor-api</UserSecretsId>
+
+    <!--
+      The service formats every value with the invariant culture by design, so it has no use for
+      ICU. Dropping it removes the native dependency from the container and takes roughly 30 MB
+      off the runtime image.
+    -->
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FinMonitor.Core\FinMonitor.Core.csproj" />
+    <ProjectReference Include="..\FinMonitor.Redis\FinMonitor.Redis.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+  </ItemGroup>
+
+</Project>
