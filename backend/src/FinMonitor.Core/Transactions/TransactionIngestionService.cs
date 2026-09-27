@@ -66,7 +66,7 @@ public sealed class TransactionIngestionService(
             return IngestionResult.Conflict(merge.Value, reason);
         }
 
-        await eventBus.PublishAsync(incoming, cancellationToken).ConfigureAwait(false);
+        await eventBus.PublishAsync(incoming, cancellationToken);
 
         logger.LogDebug(
             "Published transaction {TransactionId} with status {Status}.",

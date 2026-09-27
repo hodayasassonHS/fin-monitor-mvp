@@ -58,8 +58,7 @@ internal sealed partial class TransactionProjectionService(
         // Deliberately after the store write. A client that receives an update and immediately
         // asks this replica for a snapshot must not be told the transaction does not exist.
         await hub.Clients.All
-            .TransactionUpserted(TransactionDto.From(transaction))
-            .ConfigureAwait(false);
+            .TransactionUpserted(TransactionDto.From(transaction));
 
         LogBroadcast(transaction.TransactionId, transaction.Status);
     }

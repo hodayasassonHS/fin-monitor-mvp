@@ -32,3 +32,4 @@ internal sealed class RedisConnectionHealthCheck(IServiceProvider services) : IH
             : HealthCheckResult.Degraded("Disconnected from the transaction stream; serving a stale view."));
     }
 }
+//v for the kubernetic to undarstan if the conection is heakthy 

@@ -1,4 +1,4 @@
-namespace FinMonitor.Core.Transactions;
+﻿namespace FinMonitor.Core.Transactions;
 
 /// <summary>
 /// Lifecycle state of a transaction. <see cref="Completed"/> and <see cref="Failed"/> are

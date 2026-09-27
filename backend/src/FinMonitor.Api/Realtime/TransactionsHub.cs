@@ -25,14 +25,14 @@ public sealed class TransactionsHub(
         // being ingested while it is serialised and sent.
         var snapshot = store.GetLatest(limit: storeOptions.Value.Capacity);
 
-        await Clients.Caller.Snapshot(TransactionDto.From(snapshot)).ConfigureAwait(false);
+        await Clients.Caller.Snapshot(TransactionDto.From(snapshot));
 
         logger.LogDebug(
             "Dashboard {ConnectionId} connected; sent {Count} transactions.",
             Context.ConnectionId,
             snapshot.Count);
 
-        await base.OnConnectedAsync().ConfigureAwait(false);
+        await base.OnConnectedAsync();
     }
 
     public override Task OnDisconnectedAsync(Exception? exception)

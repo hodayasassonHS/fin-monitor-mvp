@@ -16,11 +16,9 @@ data:
   # history that nothing ever reads.
   Redis__StreamMaxLength: "500"
   Redis__StreamKey: "finmonitor:transactions"
-  Redis__NotificationChannel: "finmonitor:transactions:wake"
 
-  # Backstop only. Steady-state latency comes from the pub/sub doorbell; this is what bounds
-  # staleness if a notification is lost during a disconnect.
-  Redis__SafetyPollInterval: "00:00:01"
+  # How often each replica checks the stream for new entries.
+  Redis__PollInterval: "00:00:01"
 
   Logging__LogLevel__Default: "Information"
   Logging__LogLevel__Microsoft.AspNetCore: "Warning"

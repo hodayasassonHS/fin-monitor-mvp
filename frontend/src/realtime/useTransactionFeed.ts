@@ -47,9 +47,15 @@ export interface TransactionFeed {
  * transactions can be coalesced outside React's control and handed over one batch per frame.
  * See {@link createTransactionStore} for why that matters under load.
  */
-export function useTransactionFeed(capacity: number = DEFAULT_CAPACITY): TransactionFeed {
-  const store = useMemo(() => createTransactionStore({ capacity }), [capacity]);
-  const [connectionState, setConnectionState] = useState<ConnectionState>('connecting');
+export function useTransactionFeed(capacity: number = DEFAULT_CAPACITY): TransactionFeed
+{
+    const store =
+        useMemo(() =>
+            createTransactionStore({ capacity }), [capacity]);
+
+
+    const [connectionState, setConnectionState] =
+        useState<ConnectionState>('connecting');
 
   useEffect(() => {
     const connection = createConnection();
@@ -85,23 +91,30 @@ export function useTransactionFeed(capacity: number = DEFAULT_CAPACITY): Transac
         }
       },
     );
+      // cleanup
 
-    return () => {
-      disposed = true;
+      return () => {
+          disposed = true;
 
-      // Let start() settle before stopping. StrictMode mounts, unmounts and remounts every
-      // effect in development, so this cleanup fires while the handshake is still in flight;
-      // calling stop() at that moment is supported but logs an error on every page load, which
-      // trains people to ignore the console. Waiting costs nothing and keeps it clean.
-      void started
-        .then(() =>
-          connection.state === HubConnectionState.Disconnected ? undefined : connection.stop(),
+          // Let start() settle before stopping. StrictMode mounts, unmounts and remounts every
+          // effect in development, so this cleanup fires while the handshake is still in flight;
+          // calling stop() at that moment is supported but logs an error on every page load, which
+          // trains people to ignore the console. Waiting costs nothing and keeps it clean.
+          void started
+              .then(() =>
+              {
+                  if (connection.state === HubConnectionState.Disconnected) {
+                      return undefined;
+                  } else {
+                      return connection.stop();
+                  }
+              }
         )
-        .catch(() => undefined);
+        ;
     };
   }, [store]);
 
-  const entries = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
+  const entries = useSyncExternalStore(store.subscribe, store.getSnapshot);
 
   return { entries, connectionState };
 }

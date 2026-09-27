@@ -1,10 +1,6 @@
-import type { Transaction } from '../domain/transaction.ts';
 import type { IngestOutcome, TransactionRequest } from '../api/transactionsApi.ts';
 
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'JPY', 'ILS'] as const;
-
-/** Roughly a fifth of settled transactions fail, so the Errors filter has something to show. */
-const FAILURE_RATE = 0.2;
 
 /**
  * Requests in flight at once during a burst.
@@ -33,18 +29,6 @@ export function randomTransaction(): TransactionRequest {
     amount: randomAmount(),
     currency: pick(CURRENCIES),
     status: 'Pending',
-    timestamp: new Date().toISOString(),
-  };
-}
-
-/** Builds the follow-up request that moves a pending transaction to its final state. */
-export function settlementFor(transaction: Transaction): TransactionRequest {
-  return {
-    transactionId: transaction.transactionId,
-    // Amount and currency are immutable server-side; resending them unchanged is required.
-    amount: transaction.amount,
-    currency: transaction.currency,
-    status: Math.random() < FAILURE_RATE ? 'Failed' : 'Completed',
     timestamp: new Date().toISOString(),
   };
 }

@@ -1,5 +1,4 @@
 using FinMonitor.Core.Transactions;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using StackExchange.Redis;
 
@@ -17,21 +16,12 @@ namespace FinMonitor.Redis;
 /// retention bound (<c>MAXLEN</c>) is deliberately the same shape as the store's capacity, so
 /// "what a replica can recover" and "what a replica keeps" are the same window by construction.
 /// <para>
-/// <b>Why pub/sub is here as well.</b> StackExchange.Redis does not expose blocking <c>XREAD</c>
-/// — a blocking command would occupy the shared multiplexer — so following a stream means
-/// polling, and polling means trading latency against load. Publishing a contentless doorbell on
-/// a pub/sub channel removes that trade: the consumer sleeps until it is woken, then drains the
-/// stream. Because the notification carries no data, losing one costs only latency until the
-/// next safety poll; correctness still rests entirely on the stream.
-/// </para>
-/// <para>
 /// See <c>docs/adr/0003-multi-replica-synchronisation.md</c> for the alternatives considered.
 /// </para>
 /// </remarks>
 public sealed class RedisStreamTransactionEventBus(
     IConnectionMultiplexer connection,
-    IOptions<RedisTransactionBusOptions> options,
-    ILogger<RedisStreamTransactionEventBus> logger) : ITransactionEventBus
+    IOptions<RedisTransactionBusOptions> options) : ITransactionEventBus
 {
     private readonly RedisTransactionBusOptions _options = options.Value;
 
@@ -52,23 +42,7 @@ public sealed class RedisStreamTransactionEventBus(
             TransactionStreamEntry.ToEntries(transaction),
             messageId: null,
             maxLength: _options.StreamMaxLength,
-            useApproximateMaxLength: true).ConfigureAwait(false);
-
-        // Best effort. The entry is already durably in the stream, so a failed doorbell delays
-        // delivery to the next safety poll rather than losing the transaction.
-        try
-        {
-            await connection.GetSubscriber()
-                .PublishAsync(RedisChannel.Literal(_options.NotificationChannel), RedisValue.EmptyString)
-                .ConfigureAwait(false);
-        }
-        catch (RedisException ex)
-        {
-            logger.LogWarning(
-                ex,
-                "Could not notify replicas about transaction {TransactionId}; it will be picked up by the next poll.",
-                transaction.TransactionId);
-        }
+            useApproximateMaxLength: true);
     }
 
     /// <remarks>

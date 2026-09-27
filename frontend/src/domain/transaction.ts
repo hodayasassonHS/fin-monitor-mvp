@@ -17,10 +17,6 @@ export interface Transaction {
   readonly timestamp: string;
 }
 
-export function isTerminal(status: TransactionStatus): boolean {
-  return status === 'Completed' || status === 'Failed';
-}
-
 /**
  * True when two observations of a transaction represent the same state.
  *

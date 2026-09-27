@@ -14,19 +14,13 @@ public static class TransactionEndpoints
 
     public static IEndpointRouteBuilder MapTransactionEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/transactions").WithTags("Transactions");
+        var group = app.MapGroup("/api/transactions");
 
-        group.MapPost("/", IngestAsync)
-            .WithName("IngestTransaction")
-            .WithSummary("Ingests a transaction, or updates the status of one already known.");
+        group.MapPost("/", IngestAsync);
 
-        group.MapGet("/", GetLatest)
-            .WithName("GetLatestTransactions")
-            .WithSummary("Returns the most recently updated transactions, newest first.");
+        group.MapGet("/", GetLatest);
 
-        group.MapGet("/{transactionId:guid}", GetById)
-            .WithName("GetTransaction")
-            .WithSummary("Returns a single transaction by id.");
+        group.MapGet("/{transactionId:guid}", GetById);
 
         return app;
     }
@@ -43,7 +37,7 @@ public static class TransactionEndpoints
             TransactionIngestionService ingestion,
             CancellationToken cancellationToken)
     {
-        var result = await ingestion.IngestAsync(request, cancellationToken).ConfigureAwait(false);
+        var result = await ingestion.IngestAsync(request, cancellationToken);
 
         return result.Status switch
         {

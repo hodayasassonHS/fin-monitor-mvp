@@ -73,30 +73,6 @@ export async function postTransaction(request: TransactionRequest): Promise<Inge
   return { kind: 'unavailable', detail: problem?.detail ?? `Server responded ${response.status}.` };
 }
 
-export async function fetchTransactions(options?: {
-  readonly status?: TransactionStatus;
-  readonly limit?: number;
-}): Promise<readonly Transaction[]> {
-  const query = new URLSearchParams();
-
-  if (options?.status) {
-    query.set('status', options.status);
-  }
-
-  if (options?.limit !== undefined) {
-    query.set('limit', String(options.limit));
-  }
-
-  const suffix = query.size > 0 ? `?${query}` : '';
-  const response = await fetch(`${apiBaseUrl}/api/transactions${suffix}`);
-
-  if (!response.ok) {
-    throw new Error(`Could not load transactions (${response.status}).`);
-  }
-
-  return (await response.json()) as readonly Transaction[];
-}
-
 async function readProblem(response: Response): Promise<ProblemDetails | null> {
   try {
     return (await response.json()) as ProblemDetails;

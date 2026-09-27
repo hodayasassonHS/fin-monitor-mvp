@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react';
 import type { ChangeKind } from '../realtime/transactionStore.ts';
-import { usePrefersReducedMotion } from './usePrefersReducedMotion.ts';
 
 const ENTER_DURATION_MS = 420;
 const PULSE_DURATION_MS = 900;
@@ -25,14 +24,13 @@ export function useChangeAnimation<T extends HTMLElement>(
   change: ChangeKind,
 ): React.RefObject<T | null> {
   const ref = useRef<T>(null);
-  const prefersReducedMotion = usePrefersReducedMotion();
 
   useEffect(() => {
     const element = ref.current;
 
     // `restored` rows came from a snapshot: known history, not news. Animating them would make
     // every reconnect look like a flood of new activity.
-    if (!element || change === 'restored' || prefersReducedMotion) {
+    if (!element || change === 'restored') {
       return;
     }
 
@@ -65,7 +63,7 @@ export function useChangeAnimation<T extends HTMLElement>(
           );
 
     return () => animation.cancel();
-  }, [revision, change, prefersReducedMotion]);
+  }, [revision, change]);
 
   return ref;
 }

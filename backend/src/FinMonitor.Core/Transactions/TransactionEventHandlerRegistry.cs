@@ -42,7 +42,7 @@ public sealed class TransactionEventHandlerRegistry
         // a transaction the local store has not recorded yet.
         foreach (var handler in _handlers)
         {
-            await handler(transaction, cancellationToken).ConfigureAwait(false);
+            await handler(transaction, cancellationToken);
         }
     }
 
@@ -73,12 +73,19 @@ public sealed class TransactionEventHandlerRegistry
     private sealed class Subscription(TransactionEventHandlerRegistry registry, TransactionEventHandler handler)
         : IDisposable
     {
+        private readonly Lock _gate = new();
         private TransactionEventHandler? _handler = handler;
 
         public void Dispose()
         {
-            // Interlocked so that a double dispose cannot remove a second, unrelated registration.
-            var target = Interlocked.Exchange(ref _handler, null);
+            TransactionEventHandler? target;
+
+            // Locked so that a double dispose cannot remove a second, unrelated registration.
+            lock (_gate)
+            {
+                target = _handler;
+                _handler = null;
+            }
 
             if (target is not null)
             {

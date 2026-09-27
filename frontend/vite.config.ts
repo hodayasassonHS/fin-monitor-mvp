@@ -1,5 +1,5 @@
 import react from '@vitejs/plugin-react';
-import { defineConfig } from 'vitest/config';
+import { defineConfig } from 'vite';
 
 /**
  * The dev server proxies `/api` and `/hubs` to the backend so the browser only ever talks to one
@@ -12,7 +12,7 @@ const backendOrigin = process.env.VITE_BACKEND_ORIGIN ?? 'http://localhost:5080'
 export default defineConfig({
   plugins: [react()],
   server: {
-    port: 5173,
+    port: Number(process.env['PORT']) || 5173,
     proxy: {
       '/api': { target: backendOrigin, changeOrigin: true },
       // ws: true is what lets the SignalR WebSocket upgrade through the dev proxy.
@@ -21,15 +21,5 @@ export default defineConfig({
   },
   build: {
     sourcemap: true,
-  },
-  test: {
-    globals: true,
-    environment: 'jsdom',
-    setupFiles: ['./src/test/setup.ts'],
-    coverage: {
-      provider: 'v8',
-      include: ['src/**/*.{ts,tsx}'],
-      exclude: ['src/test/**', 'src/**/*.test.{ts,tsx}', 'src/main.tsx'],
-    },
   },
 });
