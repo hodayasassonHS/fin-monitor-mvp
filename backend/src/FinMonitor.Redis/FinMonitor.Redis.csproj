@@ -9,8 +9,4 @@
     <ProjectReference Include="..\FinMonitor.Core\FinMonitor.Core.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <InternalsVisibleTo Include="FinMonitor.Api.Tests" />
-  </ItemGroup>
-
 </Project>

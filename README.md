@@ -5,7 +5,7 @@ MVP that accepts transactions over HTTP and pushes them to a live dashboard.
 - Backend: .NET 9, minimal APIs, SignalR
 - Frontend: React 19, TypeScript, Vite
 - Storage: in-memory
-- Tests: 126 backend
+- Tests: 86 backend
 
 ## Running it
 
